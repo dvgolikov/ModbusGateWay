@@ -1,23 +1,19 @@
-using ModbusGateWay.Modbus;
-
-namespace ModbusGateWay.Services
+namespace ModbusGateWay.Modbus
 {
-    public class DataCaptureService : IHostedService
+    public class DataCaptureService
     {
-        private readonly ModbusMessage _requestCurrent = new ModbusMessage(5, 0x3, 0xB00, 8);
-        private readonly ModbusMessage _requestCounters = new ModbusMessage(5, 0x3, 0x218, 32);
-        private readonly ModbusMessage _requestDI = new ModbusMessage(41, 0x1, 0x0, 16);
+        //private readonly ModbusMessage _requestCurrent = new ModbusMessage(5, 0x3, 0xB00, 8);
+        //private readonly ModbusMessage _requestCounters = new ModbusMessage(5, 0x3, 0x218, 32);
+        //private readonly ModbusMessage _requestDI = new ModbusMessage(41, 0x1, 0x0, 16);
 
-        private readonly ActualData _actualData;
         private readonly ILogger<DataCaptureService> _logger;
         private readonly ModbusMaster _modbusMaster;
 
-        public DataCaptureService(ILogger<DataCaptureService> logger, ActualData actualData, IConfiguration configuration, IModbus deviceCOMPort)
+        public DataCaptureService(ILogger<DataCaptureService> logger, IConfiguration configuration, IModbus deviceCOMPort)
         {
             _logger = logger;
-            _actualData = actualData;
 
-            string portName= configuration["PortName"];
+            string portName = configuration["PortName"];
 
             try
             {
@@ -31,37 +27,6 @@ namespace ModbusGateWay.Services
 
                 return;
             }
-
-
-
-            Task.Factory.StartNew(async () =>
-            {
-                while(true)
-                {
-                    try
-                    {
-                        await UpdateCurrent();
-
-                        await Task.Delay(2000);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Update data.");
-
-                        break;
-                    }
-                }
-            });
-        }
-
-        public Task StartAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
 
         private async Task<bool> UpdateCurrent()

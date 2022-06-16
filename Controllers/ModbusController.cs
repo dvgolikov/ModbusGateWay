@@ -8,22 +8,17 @@ namespace ModbusGateWay.Controllers
     public class ModbusController : ControllerBase
     {
         private readonly ILogger<ModbusController> _logger;
-        private readonly ActualData _actualData;
 
-        public ModbusController(ILogger<ModbusController> logger, ActualData actualData)
+        public ModbusController(ILogger<ModbusController> logger)
         {
             _logger = logger;
 
-            _actualData = actualData;
         }
 
         [HttpGet]
-        public IEnumerable<string> Get()
+        public IActionResult Get([FromBody] RequestParameters requestParameters, DataCaptureService dataCaptureService)
         {
-            yield return _actualData.CurrentChanel1.ToString("0.00");
-            yield return _actualData.CurrentChanel2.ToString("0.00");
-            yield return _actualData.CurrentChanel3.ToString("0.00");
-            yield return _actualData.CurrentChanel4.ToString("0.00");
+            
         }
     }
 }

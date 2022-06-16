@@ -3,6 +3,7 @@
     public class ModbusMaster
     {
         private IModbus _modbus;
+        private SemaphoreSlim _semaphore;
 
         public int SendBytes { get; private set; }
         public int ReadBytes { get; private set; }
@@ -14,27 +15,40 @@
 
         public async Task<ModbusMessage?> SendMessage(ModbusMessage request)
         {
-            var treshData = _modbus.ReceiveData();
+            await _semaphore.WaitAsync();
 
-            TreshBytes += treshData.Length;
+            try
+            {
+                var treshData = _modbus.ReceiveData();
 
-            SendBytes += _modbus.SendData(request.Data);
+                TreshBytes += treshData.Length;
 
-            await Task.Delay(100);
+                SendBytes += _modbus.SendData(request.Data);
 
-            byte[] _read = _modbus.ReceiveData();
+                await Task.Delay(100);
 
-            ReadBytes += _read.Length;
+                byte[] _read = _modbus.ReceiveData();
 
-            ModbusMessage _out = new ModbusMessage(_read);
+                ReadBytes += _read.Length;
 
-            return _out;
+                ModbusMessage _out = new ModbusMessage(_read);
+
+                return _out;
+            }
+            catch(Exception ex)
+            {
+                return null;
+
+                _semaphore.Release();
+            }
         }
 
 
         public ModbusMaster(IModbus modbus)
         {
             _modbus = modbus;
+
+            _semaphore = new SemaphoreSlim(1);
         }
     }
 }

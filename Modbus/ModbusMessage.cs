@@ -4,17 +4,9 @@ namespace ModbusGateWay.Modbus
 {
     public class ModbusMessage
     {
-        public byte SlaveId { get; private set; }
-
-        public byte Function { get; private set; }
-
-        public UInt16 Count { get; private set; }
-
-        public UInt16 Command { get; private set; }
-
-        public UInt16 Addres { get; private set; }
-
         public ErrorCode Error { get; private set; } = ErrorCode.None;
+
+        public readonly RequestParameters RequestData;
 
         private byte[] _data;
 
@@ -23,21 +15,21 @@ namespace ModbusGateWay.Modbus
             get
             {
                 _data = new byte[8];
-                _data[0] = SlaveId;
-                _data[1] = Function;
-                _data[2] = BitConverter.GetBytes(Addres)[1];
-                _data[3] = BitConverter.GetBytes(Addres)[0];
+                _data[0] = RequestData.SlaveId;
+                _data[1] = RequestData.Function;
+                _data[2] = BitConverter.GetBytes(RequestData.Addres)[1];
+                _data[3] = BitConverter.GetBytes(RequestData.Addres)[0];
 
-                if (Count > 0 && Command == 0)
+                if (RequestData.Count > 0 && RequestData.Command == 0)
                 {
-                    _data[4] = BitConverter.GetBytes(Count)[1];
-                    _data[5] = BitConverter.GetBytes(Count)[0];
+                    _data[4] = BitConverter.GetBytes(RequestData.Count)[1];
+                    _data[5] = BitConverter.GetBytes(RequestData.Count)[0];
                 }
 
-                if (Count == 0 && Command > 0)
+                if (RequestData.Count == 0 && RequestData.Command > 0)
                 {
-                    _data[4] = BitConverter.GetBytes(Command)[1];
-                    _data[5] = BitConverter.GetBytes(Command)[0];
+                    _data[4] = BitConverter.GetBytes(RequestData.Command)[1];
+                    _data[5] = BitConverter.GetBytes(RequestData.Command)[0];
                 }
 
                 byte[] _temp = BitConverter.GetBytes(CalcCRC(_data, 6));
@@ -47,39 +39,32 @@ namespace ModbusGateWay.Modbus
 
                 return _data;
             }
-            set
+        }
+
+        public ModbusMessage(RequestParameters requestParameters)
+        {
+            RequestData = requestParameters;
+        }
+
+        public ModbusMessage(byte[] data)
+        {
+            _data = data;
+
+            if (_data.Length < 3)
             {
-                _data = value;
+                Error |= ErrorCode.NoData;
+                return;
+            }
 
-                if (_data.Length < 3)
-                {
-                    Error |= ErrorCode.NoData;
-                    return;
-                }
+            //if (CheckCRC(_data)) Error |= ErrorCode.CRCError;
 
-                //if (CheckCRC(_data)) Error |= ErrorCode.CRCError;
+            if (_data[0] > 64) Error |= ErrorCode.DevError;
 
-                if (_data[0] > 64) Error |= ErrorCode.DevError;
-
-                if (Error == 0)
-                {
-                    SlaveId = _data[0];
-                    Function = _data[1];
-                    Count = _data[2];
-                }
+            if (Error == 0)
+            {
+                RequestData = new RequestParameters(_data[0], _data[1],0, _data[2]);
             }
         }
-
-        public ModbusMessage(byte slaveId, byte function, UInt16 addres, UInt16 count = 0, UInt16 command = 0)
-        {
-            SlaveId = slaveId;
-            Function = function;
-            Addres = addres;
-            Count = count;
-            Command = command;
-        }
-
-        public ModbusMessage(byte[] data) => Data = data;
 
         private static UInt16 CalcCRC(byte[] _in, int num)
         {
@@ -126,9 +111,9 @@ namespace ModbusGateWay.Modbus
         {
             get
             {
-                int floatCount = Count / 4;
+                int floatCount = RequestData.Count / 4;
 
-                if (floatCount < 1 || Count % 4 != 0) Error |= ErrorCode.ConvеrtDataError;
+                if (floatCount < 1 || RequestData.Count % 4 != 0) Error |= ErrorCode.ConvеrtDataError;
 
                 if (Error != 0) return new float[0];
 
@@ -155,9 +140,9 @@ namespace ModbusGateWay.Modbus
             {
                 if (Error != 0) return new bool[0];
 
-                bool[] _return = new bool[Count * 8];
+                bool[] _return = new bool[RequestData.Count * 8];
 
-                for (int j = 0; j < Count; j++)
+                for (int j = 0; j < RequestData.Count; j++)
                     for (int i = 0; i < 8; i++)
                         _return[j * 8 + i] = (_data[3 + j] & (1 << i)) != 0;
 
@@ -169,9 +154,9 @@ namespace ModbusGateWay.Modbus
         {
             get
             {
-                int intCount = (int)(Count / 2);
+                int intCount = (int)(RequestData.Count / 2);
 
-                if (intCount < 1 || Count % 2 != 0) Error |= ErrorCode.ConvеrtDataError;
+                if (intCount < 1 || RequestData.Count % 2 != 0) Error |= ErrorCode.ConvеrtDataError;
 
                 if (Error != 0) return new int[0];
 
