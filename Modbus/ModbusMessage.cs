@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using ModbusGateWay.Models;
+using System.Text;
 
 namespace ModbusGateWay.Modbus
 {

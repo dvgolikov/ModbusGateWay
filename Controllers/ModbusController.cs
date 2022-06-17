@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ModbusGateWay.Modbus;
+using ModbusGateWay.Models;
 
 namespace ModbusGateWay.Controllers
 {
@@ -13,6 +14,12 @@ namespace ModbusGateWay.Controllers
         {
             _logger = logger;
 
+        }
+
+        [HttpGet]
+        public IEnumerable<string> GetPorts(DataCollector dataCollector)
+        {
+            return dataCollector.GetAvailableComPort();
         }
 
         [HttpGet]

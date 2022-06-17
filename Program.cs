@@ -4,7 +4,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSingleton<IModbus, DeviceCOMPort>();
 builder.Services.AddSingleton<DataCaptureService>();
 
 var app = builder.Build();

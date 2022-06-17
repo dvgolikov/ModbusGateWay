@@ -10,27 +10,35 @@ namespace ModbusGateWay.Modbus
         public DeviceCOMPort(ILogger<DeviceCOMPort> logger)
         {
             _logger = logger;
-
-            string[] ports = SerialPort.GetPortNames();
-            foreach (string port in ports)
-                _logger.LogInformation(port);
         }
 
-        public void OpenPort(string portName)
+        public bool OpenPort(string portName)
         {
-            _serialPort = new SerialPort();
+            try
+            {
+                _serialPort = new SerialPort();
 
-            _serialPort.PortName = portName;
-            _serialPort.BaudRate = 115200;
-            _serialPort.Parity = Parity.None;
-            _serialPort.DataBits = 8;
-            _serialPort.StopBits = StopBits.One;
-            _serialPort.Handshake = Handshake.None;
+                _serialPort.PortName = portName;
+                _serialPort.BaudRate = 115200;
+                _serialPort.Parity = Parity.None;
+                _serialPort.DataBits = 8;
+                _serialPort.StopBits = StopBits.One;
+                _serialPort.Handshake = Handshake.None;
 
-            _serialPort.ReadTimeout = 500;
-            _serialPort.WriteTimeout = 500;
+                _serialPort.ReadTimeout = 500;
+                _serialPort.WriteTimeout = 500;
 
-            _serialPort.Open();
+                _serialPort.Open();
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Port open Exception");
+
+                return false;
+            }
+
+            return true;
         }
 
         public byte[] ReceiveData()
