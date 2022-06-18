@@ -5,46 +5,44 @@ namespace ModbusGateWay.Modbus
 {
     public class ModbusMessage
     {
-        public ErrorCode Error { get; private set; } = ErrorCode.None;
-
-        public readonly RequestParameters RequestData;
-
         private byte[] _data;
 
-        public byte[] Data
+        public ErrorCode Error { get; private set; } = ErrorCode.None;
+        public byte SlaveId => _data[0];
+        public byte Function => _data[1];
+        public byte Count => _data[2];
+        public byte[] Data => _data;
+
+        public ModbusMessage(ModbusRequest request)
         {
-            get
-            {
-                _data = new byte[8];
-                _data[0] = RequestData.SlaveId;
-                _data[1] = RequestData.Function;
-                _data[2] = BitConverter.GetBytes(RequestData.Addres)[1];
-                _data[3] = BitConverter.GetBytes(RequestData.Addres)[0];
+            _data = new byte[8];
+            _data[0] = request.SlaveId;
+            _data[1] = request.Function;
+            _data[2] = BitConverter.GetBytes(request.Addres)[1];
+            _data[3] = BitConverter.GetBytes(request.Addres)[0];
+            _data[4] = BitConverter.GetBytes(request.Count)[1];
+            _data[5] = BitConverter.GetBytes(request.Count)[0];
 
-                if (RequestData.Count > 0 && RequestData.Command == 0)
-                {
-                    _data[4] = BitConverter.GetBytes(RequestData.Count)[1];
-                    _data[5] = BitConverter.GetBytes(RequestData.Count)[0];
-                }
+            byte[] _temp = BitConverter.GetBytes(CalcCRC(_data, 6));
 
-                if (RequestData.Count == 0 && RequestData.Command > 0)
-                {
-                    _data[4] = BitConverter.GetBytes(RequestData.Command)[1];
-                    _data[5] = BitConverter.GetBytes(RequestData.Command)[0];
-                }
-
-                byte[] _temp = BitConverter.GetBytes(CalcCRC(_data, 6));
-
-                _data[6] = _temp[0];
-                _data[7] = _temp[1];
-
-                return _data;
-            }
+            _data[6] = _temp[0];
+            _data[7] = _temp[1];
         }
 
-        public ModbusMessage(RequestParameters requestParameters)
+        public ModbusMessage(ModbusCommand command)
         {
-            RequestData = requestParameters;
+            _data = new byte[8];
+            _data[0] = command.SlaveId;
+            _data[1] = command.Function;
+            _data[2] = BitConverter.GetBytes(command.Addres)[1];
+            _data[3] = BitConverter.GetBytes(command.Addres)[0];
+            _data[4] = BitConverter.GetBytes(command.Command)[1];
+            _data[5] = BitConverter.GetBytes(command.Command)[0];
+
+            byte[] _temp = BitConverter.GetBytes(CalcCRC(_data, 6));
+
+            _data[6] = _temp[0];
+            _data[7] = _temp[1];
         }
 
         public ModbusMessage(byte[] data)
@@ -57,14 +55,9 @@ namespace ModbusGateWay.Modbus
                 return;
             }
 
-            //if (CheckCRC(_data)) Error |= ErrorCode.CRCError;
+            if (CheckCRC(_data)) Error |= ErrorCode.CRCError;
 
-            if (_data[0] > 64) Error |= ErrorCode.DevError;
-
-            if (Error == 0)
-            {
-                RequestData = new RequestParameters(_data[0], _data[1],0, _data[2]);
-            }
+            if (SlaveId > 64) Error |= ErrorCode.DevError;
         }
 
         private static UInt16 CalcCRC(byte[] _in, int num)
@@ -86,7 +79,7 @@ namespace ModbusGateWay.Modbus
                 }
             }
 
-            return (crc16);
+            return crc16;
         }
 
         private static bool CheckCRC(byte[] _in)
@@ -108,56 +101,49 @@ namespace ModbusGateWay.Modbus
             return sb.ToString();
         }
 
-        public float[] FloatData
+        public IEnumerable<float> GetAsFloat()
         {
-            get
+            int floatCount = Count / 4;
+
+            if (floatCount < 1 || Count % 4 != 0) Error |= ErrorCode.ConvеrtDataError;
+
+            if (Error != 0) return new float[0];
+
+            float[] _out = new float[floatCount];
+
+            for (int i = 0; i < floatCount; i++)
             {
-                int floatCount = RequestData.Count / 4;
-
-                if (floatCount < 1 || RequestData.Count % 4 != 0) Error |= ErrorCode.ConvеrtDataError;
-
-                if (Error != 0) return new float[0];
-
-                float[] _out = new float[floatCount];
-
-                for (int i = 0; i < floatCount; i++)
-                {
-                    _out[i] = System.BitConverter.ToSingle(
-                        new byte[]{
+                _out[i] = System.BitConverter.ToSingle(
+                    new byte[]{
                             _data[6 + i * 4],
                             _data[5 + i * 4],
                             _data[4 + i * 4],
                             _data[3 + i * 4]
-                        }, 0);
-                }
-
-                return _out;
+                    }, 0);
             }
+
+            return _out;
+
         }
 
-        public bool[] BooleanData
+        public IEnumerable<bool> GetAsBool()
         {
-            get
-            {
                 if (Error != 0) return new bool[0];
 
-                bool[] _return = new bool[RequestData.Count * 8];
+                bool[] _return = new bool[Count * 8];
 
-                for (int j = 0; j < RequestData.Count; j++)
+                for (int j = 0; j < Count; j++)
                     for (int i = 0; i < 8; i++)
                         _return[j * 8 + i] = (_data[3 + j] & (1 << i)) != 0;
 
                 return _return;
-            }
         }
 
-        public int[] IntegerData
+        public IEnumerable<int> GetAsInt()
         {
-            get
-            {
-                int intCount = (int)(RequestData.Count / 2);
+                int intCount = (int)(Count / 2);
 
-                if (intCount < 1 || RequestData.Count % 2 != 0) Error |= ErrorCode.ConvеrtDataError;
+                if (intCount < 1 || Count % 2 != 0) Error |= ErrorCode.ConvеrtDataError;
 
                 if (Error != 0) return new int[0];
 
@@ -169,8 +155,6 @@ namespace ModbusGateWay.Modbus
                 }
 
                 return _out;
-
-            }
         }
     }
 }

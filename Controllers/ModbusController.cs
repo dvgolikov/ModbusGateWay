@@ -1,31 +1,46 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using ModbusGateWay.Modbus;
 using ModbusGateWay.Models;
 
 namespace ModbusGateWay.Controllers
 {
-    [ApiController]
-    [Route("[controller]")]
     public class ModbusController : ControllerBase
     {
         private readonly ILogger<ModbusController> _logger;
+        private readonly DataCollector dataCollector;
 
-        public ModbusController(ILogger<ModbusController> logger)
+        public ModbusController(ILogger<ModbusController> logger, DataCollector dataCollector)
         {
             _logger = logger;
-
+            this.dataCollector = dataCollector;
         }
 
-        [HttpGet]
-        public IEnumerable<string> GetPorts(DataCollector dataCollector)
+        public IEnumerable<string> GetPorts()
         {
             return dataCollector.GetAvailableComPort();
         }
 
-        [HttpGet]
-        public IActionResult Get([FromBody] RequestParameters requestParameters, DataCaptureService dataCaptureService)
+        public IEnumerable<int> GetDataAsInt(byte SlaveId, byte Function, ushort Addres, ushort Count)
         {
-            
+            var request = new ModbusRequest(SlaveId, Function, Addres, Count);
+
+
+            return new int[3] { 2, 5, 6 };
         }
+
+        [NonAction]
+        public virtual void OnActionExecuting(ActionExecutingContext context)
+        {
+            var test = context;
+        }
+
+        public string DefaultPath()
+        {
+            var controller = RouteData.Values["controller"];
+            var action = RouteData.Values["action"];
+            return $"controller: {controller} | action: {action}";
+        }
+        
     }
 }

@@ -4,6 +4,6 @@
     {
         int SendData(byte[] data);
         byte[] ReceiveData();
-        void OpenPort(string portName);
+        bool OpenPort(string portName);
     }
 }
