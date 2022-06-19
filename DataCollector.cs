@@ -11,30 +11,48 @@ namespace ModbusGateWay
 
         private Dictionary<string, ModbusMaster> ModbusMasters { get; }
 
-        public ModbusMaster GetMaster(string portName)
+        private readonly ILogger<DataCollector> _log;
+
+        public string AddNewComPort(ComPortProps portProps)
         {
-            if (!ModbusMasters.ContainsKey(portName))
-            {
-                var deviceCOMPort = new DeviceCOMPort(LoggerFactory.CreateLogger<DeviceCOMPort>());
+            var deviceCOMPort = new DeviceCOM(LoggerFactory.CreateLogger<DeviceCOM>(), portProps);
 
-                if (deviceCOMPort == null) return null;
+            if (deviceCOMPort == null) return "Can't create Serial port.";
 
-                if (!deviceCOMPort.OpenPort(portName)) return null;
+            if (!deviceCOMPort.OpenPort()) return deviceCOMPort.LastExceptionText;
 
-                var modbusMaster = new ModbusMaster(deviceCOMPort);
+            var modbusMaster = new ModbusMaster(deviceCOMPort);
 
-                if (modbusMaster == null) return null;
+            ModbusMasters.Add(portProps.PortName, modbusMaster);
 
-                ModbusMasters.Add(portName, modbusMaster);
-            }
+            return "";
+        }
 
-            return ModbusMasters[portName];
+        public bool AddNewTCPPort(TCPPortProps portProps)
+        {
+            var deviceCOMPort = new DeviceTCP(LoggerFactory.CreateLogger<DeviceTCP>(), portProps);
+
+            if (deviceCOMPort == null) return false;
+
+            if (!deviceCOMPort.OpenPort()) return false;
+
+            var modbusMaster = new ModbusMaster(deviceCOMPort);
+
+            if (modbusMaster == null) return false;
+
+            ModbusMasters.Add(portProps.PortName, modbusMaster);
+
+            return true;
         }
 
         public DataCollector(ILoggerFactory loggerFactory, IConfiguration configuration)
         {
             LoggerFactory = loggerFactory;
             Configuration = configuration;
+
+            ModbusMasters = new Dictionary<string, ModbusMaster>();
+
+            _log = LoggerFactory.CreateLogger<DataCollector>();
         }
 
         public IEnumerable<string> GetAvailableComPort()
@@ -42,9 +60,14 @@ namespace ModbusGateWay
             return SerialPort.GetPortNames();
         }
 
+        public IEnumerable<string> GetOpenedPort()
+        {
+            return ModbusMasters.Keys;
+        }
+
         public async Task<IEnumerable<int>> GetAsInteger(string portName, ModbusRequest request)
         {
-            var master = GetMaster(portName);
+            var master = ModbusMasters[portName];
 
             var message = new ModbusMessage(request);
 
@@ -57,7 +80,7 @@ namespace ModbusGateWay
 
         public async Task<IEnumerable<float>> GetAsFloat(string portName, ModbusRequest request)
         {
-            var master = GetMaster(portName);
+            var master = ModbusMasters[portName];
 
             var message = new ModbusMessage(request);
 
@@ -70,11 +93,15 @@ namespace ModbusGateWay
 
         public async Task<IEnumerable<bool>> GetAsBool(string portName, ModbusRequest request)
         {
-            var master = GetMaster(portName);
+            var master = ModbusMasters[portName];
 
             var message = new ModbusMessage(request);
 
+            _log.LogInformation(message.ToString());
+
             var responce = await master.SendMessage(message);
+
+            _log.LogInformation(responce?.ToString());
 
             if (responce != null) return responce.GetAsBool();
 
@@ -83,7 +110,7 @@ namespace ModbusGateWay
 
         public async Task<bool> ExecutCommand(string portName, ModbusCommand command)
         {
-            var master = GetMaster(portName);
+            var master = ModbusMasters[portName];
 
             var message = new ModbusMessage(command);
 

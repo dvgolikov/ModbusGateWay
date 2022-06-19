@@ -1,6 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
-using ModbusGateWay.Modbus;
 using ModbusGateWay.Models;
 
 namespace ModbusGateWay.Controllers
@@ -21,18 +19,44 @@ namespace ModbusGateWay.Controllers
             return dataCollector.GetAvailableComPort();
         }
 
-        public IEnumerable<int> GetDataAsInt(byte SlaveId, byte Function, ushort Addres, ushort Count)
+        public IEnumerable<string> GetOpenedPorts()
+        {
+            return dataCollector.GetOpenedPort();
+        }
+
+
+        public IEnumerable<int> GetDataAsInt(byte SlaveId, byte Function, ushort Addres, ushort Count, string portName)
         {
             var request = new ModbusRequest(SlaveId, Function, Addres, Count);
+
 
 
             return new int[3] { 2, 5, 6 };
         }
 
-        [NonAction]
-        public virtual void OnActionExecuting(ActionExecutingContext context)
+        public async Task<IEnumerable<bool>> GetDataAsBool(byte SlaveId, byte Function, ushort Addres, ushort Count, string portName)
         {
-            var test = context;
+            var request = new ModbusRequest(SlaveId, Function, Addres, Count);
+
+            return await dataCollector.GetAsBool(portName, request);
+        }
+
+        public IActionResult CreateCOMPort(string portName, int boundRate)
+        {
+            var portProps = new ComPortProps(portName, boundRate);
+
+            if (dataCollector.AddNewComPort(portProps)) return Ok();
+
+            return BadRequest();
+        }
+
+        public IActionResult CreateTCPPort(string ip, string port)
+        {
+            var portProps = new TCPPortProps(ip, port);
+
+            if (dataCollector.AddNewTCPPort(portProps)) return Ok();
+
+            return BadRequest();
         }
 
         public string DefaultPath()
@@ -41,6 +65,6 @@ namespace ModbusGateWay.Controllers
             var action = RouteData.Values["action"];
             return $"controller: {controller} | action: {action}";
         }
-        
+
     }
 }
