@@ -1,4 +1,4 @@
-﻿using System.IO.Ports;
+﻿using ModbusGateWay.Models;
 using System.Net;
 using System.Net.Sockets;
 
@@ -6,113 +6,46 @@ namespace ModbusGateWay.Modbus
 {
     public class DeviceTCP : IModbus
     {
-        private Socket _socket;
-        private ILogger<DeviceTCP> _logger;
-        readonly IPEndPoint ipPoint;
+        private readonly Socket _socket;
+        private readonly ILogger<DeviceTCP> _logger;
+        private readonly IPEndPoint _ipPoint;
 
-        public DeviceTCP(ILogger<DeviceCOMPort> logger, string ip, string port)
+        public string LastExceptionText { get; private set; } = "";
+
+        public DeviceTCP(ILogger<DeviceTCP> logger, TCPPortProps portProps)
         {
-            var _ip = IPAddress.Parse(ip);
+            _logger = logger;
 
-            int _port = int.Parse(port);
+            var _ip = IPAddress.Parse(portProps.Ip);
 
-            var ipPoint = new IPEndPoint(_ip, _port);
+            int _port = int.Parse(portProps.Port);
+
+            _ipPoint = new IPEndPoint(_ip, _port);
+
+            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         }
 
-        public bool IsConnected
-        {
-            get
-            {
-                if (_socket == null) return false;
-                return _socket.Connected;
-            }
-        }
-
-        public int TreshBytes { get; private set; }
-
-        public async Task<bool> OpenPort(string portName)
+        public bool OpenPort()
         {
             try
             {
-                if (IsConnected) _socket.Close();
+                if (_socket.Connected) _socket.Close();
 
-                _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                _socket.Connect(_ipPoint);
 
-                await _socket.ConnectAsync(ipPoint);
-
+                return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Port open Exception");
 
+                LastExceptionText=ex.Message;
+
                 return false;
-            }
-
-            return true;
+            }           
         }
 
-        public byte[] ReceiveData()
-        {
-            int bytesToRead = _serialPort.BytesToRead;
-
-            byte[] data = new byte[bytesToRead];
-
-            try
-            {
-                _serialPort.Read(data, 0, bytesToRead);
-
-                _logger.LogInformation($"Read {bytesToRead} bytes: {string.Join(" ", data)}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "ReceiveData", data);
-
-                return data;
-            }
-            return data;
-
-            TreshBytes += GetByte().Length;
-
-            SendBytes += _socket.Send(request.Data);
-
-            Console.WriteLine(DateTime.Now.ToString() + "-> Req:  " + request.ToString());
-            Task.Delay(TimeOut).Wait();
-            byte[] _read = GetByte();
-            ReadBytes += _read.Length;
-            ModbusMessage _out = new ModbusMessage(_read);
-            Console.WriteLine(DateTime.Now.ToString() + "-> Resp: " + _out.ToString());
-
-            if (_out.error != 0)
-            {
-                Errors++;
-                return null;
-            }
-
-            if (_out.SlaveId != request.SlaveId) return null;
-
-            PortBusy = false;
-            return _out;
-        }
-
-        public int SendData(byte[] data)
-        {
-            try
-            {
-                _socket.Send(data);
-
-                _logger.LogInformation($"Write {data.Length} bytes: {string.Join(" ", data)}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "SendData", data);
-
-                return 0;
-            }
-
-            return data.Length;
-        }
-
-        private byte[] GetByte()
+        public async Task<byte[]> ReceiveData()
         {
             byte[] _out;
 
@@ -122,12 +55,30 @@ namespace ModbusGateWay.Modbus
             {
                 _out = new byte[availableBytes];
 
-                _socket.Receive(_out, availableBytes, 0);
+                await _socket.ReceiveAsync(_out, 0);
 
                 return _out;
             }
-            
+
             return new byte[0];
+        }
+
+        public async Task<bool> SendData(byte[] data)
+        {
+            try
+            {
+                await _socket.SendAsync(data, 0);
+
+                _logger.LogInformation($"Write {data.Length} bytes: {string.Join(" ", data)}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SendData", data);
+
+                return false;
+            }
+
+            return true;
         }
     }
 }

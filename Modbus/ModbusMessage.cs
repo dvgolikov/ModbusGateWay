@@ -5,7 +5,8 @@ namespace ModbusGateWay.Modbus
 {
     public class ModbusMessage
     {
-        private byte[] _data;
+        private readonly byte[] _data;
+        public string ExceptionText { get; } = "";
 
         public ErrorCode Error { get; private set; } = ErrorCode.None;
         public byte SlaveId => _data[0];
@@ -52,12 +53,17 @@ namespace ModbusGateWay.Modbus
             if (_data.Length < 3)
             {
                 Error |= ErrorCode.NoData;
-                return;
             }
 
             if (CheckCRC(_data)) Error |= ErrorCode.CRCError;
 
             if (SlaveId > 64) Error |= ErrorCode.DevError;
+        }
+
+        public ModbusMessage(string exceptionText)
+        {
+            ExceptionText = exceptionText;
+            _data = new byte[0];
         }
 
         private static UInt16 CalcCRC(byte[] _in, int num)
@@ -88,7 +94,7 @@ namespace ModbusGateWay.Modbus
 
             byte[] _temp = BitConverter.GetBytes(CalcCRC(_in, _in.Length - 2));
 
-            return (_temp[0] == _in[_in.Length - 2] && _temp[1] == _in[_in.Length - 1]);
+            return (_temp[0] == _in[_in.Length - 1] && _temp[1] == _in[_in.Length - 2]);
         }
 
         public override string ToString()

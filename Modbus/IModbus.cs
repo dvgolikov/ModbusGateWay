@@ -2,8 +2,9 @@
 {
     public interface IModbus
     {
-        int SendData(byte[] data);
-        byte[] ReceiveData();
-        bool OpenPort(string portName);
+        public string LastExceptionText { get; }
+        Task<bool> SendData(byte[] data);
+        Task<byte[]> ReceiveData();
+        bool OpenPort();
     }
 }
